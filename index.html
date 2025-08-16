@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>แอปเตือนกินยา</title>
 <link rel="stylesheet" href="style.css">
-<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
 </head>
 <body>
 <div class="container">
@@ -23,14 +24,10 @@
 
   <div class="input-group">
     <label>เวลา (24 ชม.):</label>
-    <input type="time" id="medTime" step="60">
+    <input type="time" id="medTime">
   </div>
 
-  <div style="display:flex; gap:8px; flex-wrap:wrap;">
-    <button id="addBtn">เพิ่มยา</button>
-    <button id="enableNotifBtn" class="secondary">เปิดการแจ้งเตือน</button>
-    <button id="clearAllBtn" class="danger">ลบรายการทั้งหมด (ทดลอง)</button>
-  </div>
+  <button onclick="addMedication()">เพิ่มยา</button>
 
   <h2>รายการยา</h2>
   <ul id="medList"></ul>
@@ -41,7 +38,6 @@
   <audio id="alarmSound" src="alert.mp3" preload="auto"></audio>
 </div>
 
-<!-- App JS (module) -->
 <script type="module" src="app.js"></script>
 </body>
 </html>
