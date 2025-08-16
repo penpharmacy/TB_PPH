@@ -1,8 +1,7 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, collection, doc, addDoc, getDocs, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-// --- Firebase Config ---
+// 🔹 Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBcINCCqaoBBbV4egcbQ2W422ttwFl-dhE",
   authDomain: "tbmedicationreminder.firebaseapp.com",
@@ -13,127 +12,90 @@ const firebaseConfig = {
   measurementId: "G-Z27P0C9192"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const messaging = getMessaging(app);
 
-let medications = [];
-const medListDiv = document.getElementById('medList');
-const historyTbody = document.querySelector('#historyTable tbody');
-const addMedBtn = document.getElementById('addMedBtn');
+// ขออนุญาตแจ้งเตือน
+if(Notification.permission !== "granted") Notification.requestPermission();
 
-let fcmToken = "";
-
-// ขอสิทธิ์ Notification และรับ FCM token
-Notification.requestPermission().then(async (permission)=>{
-  if(permission==='granted'){
-    fcmToken = await getToken(messaging, { vapidKey: 'BEW_OlIcEMACqhY8gvQJnED9MHFIT5e0Iyp6cOmVdu8LGQn6XwSplZJ-a2FsHJWJvwr5ouW2LdyYJ6P0yCviT3Y' });
-    console.log('FCM Token:', fcmToken);
-  }
+let username = '';
+document.getElementById('username').addEventListener('change', (e)=>{
+  username = e.target.value.trim();
+  loadMedications();
+  loadHistory();
 });
 
-onMessage(messaging, (payload)=>{
-  alert(payload.notification.body);
-});
+// เพิ่มยา
+async function addMedication() {
+  if(!username) { alert("กรอกชื่อผู้ใช้ก่อน"); return; }
+  const name = document.getElementById('medName').value.trim();
+  const time = document.getElementById('medTime').value;
+  if(!name || !time) { alert("กรอกชื่อยาและเวลาให้ครบ"); return; }
 
-// --- ฟังก์ชัน UI ---
-function renderMedications(){
-  medListDiv.innerHTML='';
-  medications.forEach((med, idx)=>{
-    const div=document.createElement('div');
-    div.className='med';
-    div.innerHTML=`
-      <input id="medName_${idx}" value="${med.name}">
-      <input type="time" id="medTime_${idx}" value="${med.time}" step="60">
-      <button onclick="saveMedication(${idx})" class="save">บันทึก</button>
-      <button onclick="deleteMedication(${idx})" class="delete">ลบ</button>
-      <button onclick="markTaken('${med.name}', true)" class="taken">✅ กินยาแล้ว</button>
-      <button onclick="markTaken('${med.name}', false)" class="not-taken">❌ ไม่ได้กินยา</button>
-    `;
-    medListDiv.appendChild(div);
+  await addDoc(collection(db, "users", username, "medications"), {name, time});
+  document.getElementById('medName').value='';
+  loadMedications();
+}
+
+// โหลดรายการยา
+async function loadMedications() {
+  const list = document.getElementById('medList');
+  list.innerHTML = '';
+  if(!username) return;
+
+  const medSnapshot = await getDocs(collection(db, "users", username, "medications"));
+  medSnapshot.forEach(docItem=>{
+    const med = docItem.data();
+    const li = document.createElement('li');
+    li.textContent = `${med.name} เวลา ${med.time}`;
+    const delBtn = document.createElement('button');
+    delBtn.textContent = "ลบ";
+    delBtn.onclick = async ()=>{
+      await deleteDoc(doc(db, "users", username, "medications", docItem.id));
+      loadMedications();
+    };
+    li.appendChild(delBtn);
+    list.appendChild(li);
   });
 }
 
-// --- เพิ่มยา ---
-addMedBtn.addEventListener('click', async ()=>{
-  const name = document.getElementById('newMed').value.trim();
-  const time = document.getElementById('newMedTime').value;
-  if(!name || !time){ alert("กรอกชื่อยาและเวลาให้ครบ"); return; }
+// โหลดประวัติการกินยา
+async function loadHistory() {
+  const list = document.getElementById('historyList');
+  list.innerHTML = '';
+  if(!username) return;
 
-  medications.push({name, time, token: fcmToken});
-  document.getElementById('newMed').value='';
-  document.getElementById('newMedTime').value='19:00';
-  renderMedications();
-  await saveMedicationsToFirebase();
-});
-
-// --- บันทึกยา ---
-async function saveMedication(idx){
-  const name = document.getElementById(`medName_${idx}`).value.trim();
-  const time = document.getElementById(`medTime_${idx}`).value;
-  if(!name || !time){ alert("กรอกชื่อยาและเวลาให้ครบ"); return; }
-
-  medications[idx]={name, time, token: fcmToken};
-  renderMedications();
-  await saveMedicationsToFirebase();
-}
-
-// --- ลบยา ---
-async function deleteMedication(idx){
-  medications.splice(idx,1);
-  renderMedications();
-  await saveMedicationsToFirebase();
-}
-
-// --- บันทึกการกินยา ---
-async function markTaken(medName, taken){
-  const today = new Date().toLocaleDateString('th-TH');
-  const status = taken ? "✅ กินยาแล้ว" : "❌ ไม่ได้กินยา";
-
-  await setDoc(doc(db, "medication_history", today), { [medName]: status, timestamp: new Date() }, { merge:true });
-  alert(`บันทึก ${medName} ${status} แล้ว`);
-  loadHistory();
-}
-
-// --- โหลดประวัติ ---
-async function loadHistory(){
-  historyTbody.innerHTML='';
-  const q = query(collection(db, "medication_history"), orderBy("timestamp"));
+  const q = query(collection(db, "users", username, "history"), orderBy("timestamp", "desc"));
   const snapshot = await getDocs(q);
-  snapshot.forEach(docSnap=>{
-    const date = docSnap.id;
-    const data = docSnap.data();
-    for(const med in data){
-      if(med!=='timestamp'){
-        const tr = document.createElement('tr');
-        const statusClass = data[med].includes('✅') ? 'status-taken' : 'status-not-taken';
-        tr.innerHTML=`<td>${date}</td><td>${med}</td><td class="${statusClass}">${data[med]}</td>`;
-        historyTbody.appendChild(tr);
-      }
+  snapshot.forEach(docItem=>{
+    const h = docItem.data();
+    const li = document.createElement('li');
+    li.textContent = `${h.time} - กินยา: ${h.name}`;
+    list.appendChild(li);
+  });
+}
+
+// แจ้งเตือนอัตโนมัติทุกนาที
+setInterval(async ()=>{
+  if(!username) return;
+  const now = new Date();
+  const hhmm = now.toTimeString().slice(0,5);
+
+  const medSnapshot = await getDocs(collection(db, "users", username, "medications"));
+  medSnapshot.forEach(async docItem=>{
+    const med = docItem.data();
+    if(med.time === hhmm) {
+      if(Notification.permission === "granted")
+        new Notification("ถึงเวลาแล้ว!", {body:`กินยา: ${med.name}`});
+      document.getElementById('alarmSound').play();
+      await addDoc(collection(db, "users", username, "history"), {
+        name: med.name,
+        time: hhmm,
+        timestamp: serverTimestamp()
+      });
+      loadHistory();
     }
   });
-}
-
-// --- บันทึกไป Firebase ---
-async function saveMedicationsToFirebase(){
-  const colRef = collection(db, "medications_schedule");
-  // ลบเก่า
-  medications.forEach(async (med)=>{
-    await setDoc(doc(colRef, med.name), med);
-  });
-}
-
-// --- โหลดรายการยา ---
-async function loadMedicationsFromFirebase(){
-  const snapshot = await getDocs(collection(db, "medications_schedule"));
-  medications = [];
-  snapshot.forEach(docSnap=>{
-    medications.push(docSnap.data());
-  });
-  renderMedications();
-}
-
-// โหลดตอนเริ่ม
-loadMedicationsFromFirebase();
-loadHistory();
+}, 60000);
 
