@@ -1,98 +1,11 @@
-body {
-  font-family: 'Kanit', sans-serif;
-  background: #f4f4f9;
-  padding: 20px;
-}
-
-.container {
-  max-width: 600px;
-  margin: auto;
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 12px rgba(0,0,0,0.08);
-}
-
-h1, h2 {
-  text-align: center;
-  color: #333;
-}
-
-.input-group {
-  margin-bottom: 10px;
-}
-
-input {
-  width: 100%;
-  padding: 8px;
-  margin-top: 6px;
-  box-sizing: border-box;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-button {
-  padding: 10px 14px;
-  margin-top: 10px;
-  background: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-button.secondary {
-  background: #1976d2;
-}
-
-button.danger {
-  background: #f44336;
-}
-
-button:hover {
-  filter: brightness(0.95);
-}
-
-ul {
-  list-style: none;
-  padding-left: 0;
-  margin-top: 8px;
-}
-
-li {
-  padding: 10px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #eee;
-  font-size: 15px;
-}
-
-li .left {
-  display:flex;
-  gap:12px;
-  align-items:center;
-}
-
-li button {
-  background: #f44336;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: none;
-  color: white;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-li button:hover {
-  filter: brightness(0.9);
-}
-
-.small {
-  font-size: 13px;
-  color: #666;
-}
-
+body { font-family: 'Kanit', sans-serif; background:#f4f4f9; padding:20px; }
+.container { max-width:600px; margin:auto; background:white; padding:20px; border-radius:10px; box-shadow:0 0 12px rgba(0,0,0,0.08);}
+h1,h2{text-align:center;color:#333;}
+.input-group{margin-bottom:10px;}
+input{width:100%;padding:8px;margin-top:6px;box-sizing:border-box;border:1px solid #ddd;border-radius:6px;font-size:14px;}
+button{padding:10px 14px;margin-top:10px;background:#4CAF50;color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;}
+button:hover{filter:brightness(0.95);}
+ul{list-style:none;padding-left:0;margin-top:8px;}
+li{padding:10px;display:flex;gap:12px;align-items:center;justify-content:space-between;border-bottom:1px solid #eee;font-size:15px;}
+li .left{display:flex;gap:12px;align-items:center;}
+.small{font-size:13px;color:#666;}
