@@ -3,29 +3,39 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TB Medication Reminder</title>
+<title>แอปเตือนกินยา</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
-  <h1>เครื่องเตือนกินยา</h1>
+<h1>แอปเตือนกินยา</h1>
 
-  <h2>ใส่ชื่อยาและเวลาที่ต้องการเตือน</h2>
-  <input id="newMed" placeholder="ชื่อยาใหม่">
-  <input type="time" id="newMedTime" value="19:00" step="60">
-  <button id="addMedBtn" class="save">เพิ่มยา</button>
-  <div id="medList"></div>
-
-  <h2>ประวัติการกินยา</h2>
-  <table id="historyTable">
-    <thead>
-      <tr><th>วัน</th><th>ชื่อยา</th><th>สถานะ</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+<div class="input-group">
+<label>ชื่อผู้ใช้:</label>
+<input type="text" id="username" placeholder="เช่น สมชาย">
 </div>
 
-<!-- Firebase SDK -->
+<div class="input-group">
+<label>ชื่อยา:</label>
+<input type="text" id="medName" placeholder="เช่น ยาฆ่าเชื้อ">
+</div>
+
+<div class="input-group">
+<label>เวลา (24 ชม.):</label>
+<input type="time" id="medTime">
+</div>
+
+<button onclick="addMedication()">เพิ่มยา</button>
+
+<h2>รายการยา</h2>
+<ul id="medList"></ul>
+
+<h2>ประวัติการกินยา</h2>
+<ul id="historyList"></ul>
+
+<audio id="alarmSound" src="alert.mp3" preload="auto"></audio>
+</div>
+
 <script type="module" src="app.js"></script>
 </body>
 </html>
