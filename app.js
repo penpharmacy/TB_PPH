@@ -129,4 +129,5 @@ window.loadMedicationsFromFirebase = async function(){
   if(docSnap.exists()){ medications = docSnap.data().medications||[]; renderMedications(); }
 }
 
-window.loadMed
+window.loadMedicationsFromFirebase();
+window.loadHistory();
