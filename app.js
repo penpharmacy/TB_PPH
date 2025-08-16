@@ -1,18 +1,7 @@
-// app.js (module)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import {
-  getFirestore,
-  collection,
-  doc,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  query,
-  orderBy,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging.js";
 
-/* ====== Firebase config ====== */
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyBcINCCqaoBBbV4egcbQ2W422ttwFl-dhE",
   authDomain: "tbmedicationreminder.firebaseapp.com",
@@ -23,231 +12,76 @@ const firebaseConfig = {
   measurementId: "G-Z27P0C9192"
 };
 
+const VAPID_KEY = "PASTE_YOUR_PUBLIC_VAPID_KEY_HERE";
+
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const messaging = getMessaging(app);
 
-/* ====== DOM ====== */
-const usernameInput = document.getElementById('username');
-const medNameInput = document.getElementById('medName');
-const medTimeInput = document.getElementById('medTime');
-const medList = document.getElementById('medList');
-const historyList = document.getElementById('historyList');
-const addBtn = document.getElementById('addBtn');
-const enableNotifBtn = document.getElementById('enableNotifBtn');
-const clearAllBtn = document.getElementById('clearAllBtn');
-const alarmSound = document.getElementById('alarmSound');
-
-let username = '';
-let notificationsEnabled = false;
-
-/* ====== Helpers ====== */
-function formatHHMM(d) {
-  const hh = String(d.getHours()).padStart(2,'0');
-  const mm = String(d.getMinutes()).padStart(2,'0');
-  return `${hh}:${mm}`;
-}
-
-/* ====== UI events ====== */
-usernameInput.addEventListener('change', (e)=>{
-  username = e.target.value.trim();
-  loadMedications();
-  loadHistory();
+Notification.requestPermission().then((permission)=>{
+  if(permission==="granted"){
+    getToken(messaging,{vapIDKey:VAPID_KEY}).then(token=>console.log("FCM Token:",token));
+  }
 });
 
-addBtn.addEventListener('click', addMedication);
+// Medications local
+let medications=[];
 
-/* เปิดการแจ้งเตือน (ต้องมาจากการคลิกผู้ใช้) */
-enableNotifBtn.addEventListener('click', async ()=>{
-  try {
-    const perm = await Notification.requestPermission();
-    if(perm === 'granted') {
-      notificationsEnabled = true;
-      enableNotifBtn.textContent = "แจ้งเตือนเปิดแล้ว";
-      enableNotifBtn.disabled = true;
-      // พยายามเล่นเสียงเล็กน้อยเพื่อ "unlock" audio (ผู้ใช้คลิกแล้ว จึงอนุญาต)
-      try {
-        await alarmSound.play();
-        alarmSound.pause();
-        alarmSound.currentTime = 0;
-      } catch(e){
-        // ไม่ต้องทำอะไร ถ้า browser ยังบล็อก
-        console.warn('Cannot play sound yet:', e);
+window.addMedication=function(){
+  const username=document.getElementById("username").value.trim();
+  const medName=document.getElementById("medName").value.trim();
+  const medTime=document.getElementById("medTime").value;
+  if(!username||!medName||!medTime){alert("กรุณากรอกข้อมูลให้ครบ");return;}
+  medications.push({username,medName,medTime,taken:false,createdAt:new Date().toISOString()});
+  renderList();
+  document.getElementById("medName").value='';
+};
+
+function renderList(){
+  const medList=document.getElementById("medList");
+  medList.innerHTML='';
+  medications.forEach((med,index)=>{
+    const li=document.createElement("li");
+    li.innerHTML=`<div class='left'><div><strong>${med.medName}</strong></div><div class='small'>ผู้ใช้: ${med.username} • เวลา ${med.medTime}</div></div>`;
+    const btn=document.createElement("button");
+    btn.textContent="กินแล้ว";
+    btn.onclick=()=>markAsTaken(index);
+    li.appendChild(btn);
+    medList.appendChild(li);
+  });
+}
+
+function markAsTaken(index){
+  const med=medications[index];
+  med.taken=true;
+  const historyList=document.getElementById("historyList");
+  const li=document.createElement("li");
+  li.innerHTML=`<div class='left'><div><strong>${med.medName}</strong></div><div class='small'>${med.username} • ${new Date().toLocaleString('th-TH')}</div></div><div class='small'>✅ กินแล้ว</div>`;
+  historyList.prepend(li);
+  renderList();
+}
+
+// แจ้งเตือนทุก 2 นาที หากยังไม่กิน
+let pendingLocal={};
+function formatHHMM(d){return String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0');}
+setInterval(()=>{
+  const now=new Date();
+  const hhmm=formatHHMM(now);
+  medications.forEach((med)=>{
+    const key=`${med.username}|${med.medName}|${med.medTime}`;
+    if(med.medTime===hhmm && !med.taken){
+      const last=pendingLocal[key]||0;
+      if(Date.now()-last>2*60*1000){
+        pendingLocal[key]=Date.now();
+        if(Notification.permission==='granted'){try{new Notification('ถึงเวลาแล้ว: '+med.medName,{body:`${med.username} - กรุณากินยา`,icon:'icon-192.png'});}catch(e){console.warn(e);}}
+        try{document.getElementById('alarmSound').play();}catch(e){console.warn(e);}
       }
-    } else {
-      alert('ผู้ใช้ไม่ได้อนุญาตแจ้งเตือน');
     }
-  } catch(e) {
-    console.error(e);
-  }
+  });
+},15000);
+
+// Handle messages when tab open
+onMessage(messaging,(payload)=>{
+  const title=payload.notification?.title||'แจ้งเตือน';
+  const body=payload.notification?.body||'';
+  if(Notification.permission==='granted'){try{new Notification(title,{body,icon:payload.notification?.icon});}catch(e){console.warn(e);}}
 });
-
-/* ลบรายการทั้งหมด (สำหรับทดสอบ) */
-clearAllBtn.addEventListener('click', async ()=>{
-  if(!username) { alert('กรอกชื่อผู้ใช้ก่อน'); return; }
-  if(!confirm('ต้องการลบรายการยาและประวัติทั้งหมดของผู้ใช้?')) return;
-  // โหลด meds แล้วลบทีละ doc
-  const medsSnap = await getDocs(collection(db, 'users', username, 'medications'));
-  for(const d of medsSnap.docs) {
-    await deleteDoc(doc(db, 'users', username, 'medications', d.id));
-  }
-  const histSnap = await getDocs(collection(db, 'users', username, 'history'));
-  for(const d of histSnap.docs) {
-    await deleteDoc(doc(db, 'users', username, 'history', d.id));
-  }
-  loadMedications();
-  loadHistory();
-});
-
-/* ====== ฟังก์ชันหลัก ====== */
-async function addMedication(){
-  if(!username) { alert("กรอกชื่อผู้ใช้ก่อน"); return; }
-  const name = medNameInput.value.trim();
-  const time = medTimeInput.value;
-  if(!name || !time) { alert("กรอกชื่อยาและเวลาให้ครบ"); return; }
-
-  try {
-    await addDoc(collection(db, "users", username, "medications"), {name, time});
-    medNameInput.value = '';
-    loadMedications();
-  } catch(e) {
-    console.error(e);
-    alert("เกิดข้อผิดพลาดขณะเพิ่มยา: " + e.message);
-  }
-}
-
-async function loadMedications(){
-  medList.innerHTML = '';
-  if(!username) return;
-  try {
-    const medSnapshot = await getDocs(collection(db, "users", username, "medications"));
-    if(medSnapshot.empty){
-      const li = document.createElement('li');
-      li.textContent = 'ยังไม่มีรายการยา';
-      medList.appendChild(li);
-      return;
-    }
-    // แสดงรายการ
-    medSnapshot.forEach(docItem=>{
-      const med = docItem.data();
-      const li = document.createElement('li');
-      const left = document.createElement('div');
-      left.className = 'left';
-      const info = document.createElement('div');
-      info.innerHTML = `<div><strong>${med.name}</strong></div><div class="small">เวลา ${med.time}</div>`;
-      left.appendChild(info);
-      li.appendChild(left);
-
-      const delBtn = document.createElement('button');
-      delBtn.textContent = "ลบ";
-      delBtn.onclick = async ()=>{
-        if(!confirm('ลบรายการนี้?')) return;
-        try{
-          await deleteDoc(doc(db, "users", username, "medications", docItem.id));
-          loadMedications();
-        }catch(e){
-          console.error(e);
-          alert('ลบไม่สำเร็จ: ' + e.message);
-        }
-      };
-      li.appendChild(delBtn);
-      medList.appendChild(li);
-    });
-  } catch(e) {
-    console.error(e);
-    medList.innerHTML = '<li>โหลดรายการยาไม่สำเร็จ</li>';
-  }
-}
-
-async function loadHistory(){
-  historyList.innerHTML = '';
-  if(!username) return;
-  try {
-    const q = query(collection(db, "users", username, "history"), orderBy("timestamp", "desc"));
-    const snapshot = await getDocs(q);
-    if(snapshot.empty){
-      const li = document.createElement('li');
-      li.textContent = 'ยังไม่มีประวัติการกินยา';
-      historyList.appendChild(li);
-      return;
-    }
-    snapshot.forEach(docItem=>{
-      const h = docItem.data();
-      const li = document.createElement('li');
-      li.innerHTML = `<div class="left"><div><strong>${h.name}</strong></div><div class="small">${h.time} — ${h.timestamp ? '' : ''}</div></div>`;
-      historyList.appendChild(li);
-    });
-  } catch(e){
-    console.error(e);
-    historyList.innerHTML = '<li>โหลดประวัติไม่สำเร็จ</li>';
-  }
-}
-
-/* ====== การแจ้งเตือนอัตโนมัติ ====== */
-/*
-  - ใช้ setInterval ทุก 15 วินาที เพื่อตรวจสอบเวลา (ระหว่างการทดสอบ)
-  - เปรียบเทียบเป็น hh:mm (24hr)
-  - เพิ่มข้อมูลประวัติลง firestore เมื่อแจ้งเตือนแล้ว
-  - ป้องกันไม่ให้แจ้งเตือนซ้ำภายในนาทีเดียวโดยใช้ cache ชั่วคราว
-*/
-let lastNotified = {}; // key = "username|hh:mm|medname" -> timestamp
-
-async function checkMedications(){
-  if(!username) return;
-  try {
-    const now = new Date();
-    const hhmm = formatHHMM(now);
-    const medsSnap = await getDocs(collection(db, "users", username, "medications"));
-    medsSnap.forEach(async docItem=>{
-      const med = docItem.data();
-      if(med.time === hhmm) {
-        const key = `${username}|${hhmm}|${med.name}`;
-        // ถ้าแจ้งเตือนไปแล้วภายใน 90 วินาที ให้ข้าม (กันซ้ำ)
-        if(lastNotified[key] && (Date.now() - lastNotified[key] < 90*1000)) return;
-        lastNotified[key] = Date.now();
-
-        // Notification
-        if(Notification.permission === "granted") {
-          try {
-            new Notification("ถึงเวลาแล้ว!", { body: `กินยา: ${med.name}`, tag: `${username}-${hhmm}-${med.name}` });
-          } catch(e){
-            console.warn('Notification error:', e);
-          }
-        }
-
-        // เสียง (พยายามเล่น ถ้า browser อนุญาต)
-        try {
-          await alarmSound.play();
-        } catch(e){
-          console.warn('Cannot play alarm sound:', e);
-        }
-
-        // บันทึกประวัติ
-        try {
-          await addDoc(collection(db, "users", username, "history"), {
-            name: med.name,
-            time: hhmm,
-            timestamp: serverTimestamp()
-          });
-          loadHistory();
-        } catch(e) {
-          console.error('Save history failed:', e);
-        }
-      }
-    });
-  } catch(e) {
-    console.error('checkMedications error:', e);
-  }
-}
-
-// เริ่มตรวจสอบทุก 15 วินาที
-setInterval(checkMedications, 15000);
-
-// โหลดข้อมูลเมื่อเปิดหน้า (ถ้ามี username กรอกไว้)
-window.addEventListener('load', ()=> {
-  username = usernameInput.value.trim();
-  if(username) {
-    loadMedications();
-    loadHistory();
-  }
-});
-
