@@ -1,41 +1,47 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>แอปเตือนกินยา</title>
 <link rel="stylesheet" href="style.css">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
 <div class="container">
-<h1>แอปเตือนกินยา</h1>
+  <h1>แอปเตือนกินยา</h1>
 
-<div class="input-group">
-<label>ชื่อผู้ใช้:</label>
-<input type="text" id="username" placeholder="เช่น สมชาย">
+  <div class="input-group">
+    <label>ชื่อผู้ใช้:</label>
+    <input type="text" id="username" placeholder="เช่น สมชาย">
+  </div>
+
+  <div class="input-group">
+    <label>ชื่อยา:</label>
+    <input type="text" id="medName" placeholder="เช่น ยาฆ่าเชื้อ">
+  </div>
+
+  <div class="input-group">
+    <label>เวลา (24 ชม.):</label>
+    <input type="time" id="medTime" step="60">
+  </div>
+
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <button id="addBtn">เพิ่มยา</button>
+    <button id="enableNotifBtn" class="secondary">เปิดการแจ้งเตือน</button>
+    <button id="clearAllBtn" class="danger">ลบรายการทั้งหมด (ทดลอง)</button>
+  </div>
+
+  <h2>รายการยา</h2>
+  <ul id="medList"></ul>
+
+  <h2>ประวัติการกินยา</h2>
+  <ul id="historyList"></ul>
+
+  <audio id="alarmSound" src="alert.mp3" preload="auto"></audio>
 </div>
 
-<div class="input-group">
-<label>ชื่อยา:</label>
-<input type="text" id="medName" placeholder="เช่น ยาฆ่าเชื้อ">
-</div>
-
-<div class="input-group">
-<label>เวลา (24 ชม.):</label>
-<input type="time" id="medTime">
-</div>
-
-<button onclick="addMedication()">เพิ่มยา</button>
-
-<h2>รายการยา</h2>
-<ul id="medList"></ul>
-
-<h2>ประวัติการกินยา</h2>
-<ul id="historyList"></ul>
-
-<audio id="alarmSound" src="alert.mp3" preload="auto"></audio>
-</div>
-
+<!-- App JS (module) -->
 <script type="module" src="app.js"></script>
 </body>
 </html>
