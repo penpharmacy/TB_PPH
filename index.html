@@ -1,32 +1,11 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TB Medication Reminder</title>
 <link rel="stylesheet" href="style.css">
-<style>
-body { font-family: 'Kanit', sans-serif; padding: 20px; background: #FFF8E7; }
-.container { max-width: 650px; margin: auto; background: #FFFFFF; padding: 25px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-h1 { color: #FF6F61; text-align: center; }
-h2 { color: #FF9F1C; margin-top: 20px; }
-input[type="text"], input[type="time"] { padding: 8px; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; }
-button { padding: 8px 12px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; margin: 3px; color: white; transition: 0.3s; }
-button:hover { opacity: 0.85; }
-button.save { background-color: #4CAF50; }
-button.delete { background-color: #F44336; }
-button.taken { background-color: #1E90FF; }
-button.not-taken { background-color: #FF4500; }
-.med { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #FFD580; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-table { border-collapse: collapse; width: 100%; margin-top: 15px; border-radius: 10px; overflow: hidden; }
-th, td { padding: 10px; text-align: center; font-size: 16px; }
-th { background-color: #FFB347; color: #fff; }
-tr:nth-child(even) { background-color: #FFF2E6; }
-tr:nth-child(odd) { background-color: #FFE5B4; }
-td.status-taken { color: #4CAF50; font-weight: bold; background-color: #E0FFE0; border-radius: 5px; transition: background 0.5s; }
-td.status-not-taken { color: #F44336; font-weight: bold; background-color: #FFD6D6; border-radius: 5px; transition: background 0.5s; }
-.flash { background-color: #FFFF66 !important; }
-</style>
+<script type="module" src="app.js"></script>
 </head>
 <body>
 <div class="container">
@@ -40,170 +19,11 @@ td.status-not-taken { color: #F44336; font-weight: bold; background-color: #FFD6
 
 <h2>ประวัติการกินยา</h2>
 <table id="historyTable">
-  <thead>
-    <tr><th>วัน</th><th>ชื่อยา</th><th>สถานะ</th></tr>
-  </thead>
-  <tbody></tbody>
+<thead>
+<tr><th>วัน</th><th>ชื่อยา</th><th>สถานะ</th></tr>
+</thead>
+<tbody></tbody>
 </table>
 </div>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging.js";
-
-// --- Firebase Config ---
-const firebaseConfig = {
-  apiKey: "AIzaSyBcINCCqaoBBbV4egcbQ2W422ttwFl-dhE",
-  authDomain: "tbmedicationreminder.firebaseapp.com",
-  projectId: "tbmedicationreminder",
-  storageBucket: "tbmedicationreminder.firebasestorage.app",
-  messagingSenderId: "658947281549",
-  appId: "1:658947281549:web:cb41c127f8b3174e83c8c4",
-  measurementId: "G-Z27P0C9192"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const messaging = getMessaging(app);
-
-let medications = [];
-const medListDiv = document.getElementById('medList');
-const historyTbody = document.querySelector('#historyTable tbody');
-
-// ขอ Notification Permission + FCM Token
-Notification.requestPermission().then(permission=>{
-  if(permission==='granted'){
-    getToken(messaging, { vapidKey: 'BEW_OlIcEMACqhY8gvQJnED9MHFIT5e0Iyp6cOmVdu8LGQn6XwSplZJ-a2FsHJWJvwr5ouW2LdyYJ6P0yCviT3Y' })
-    .then(token=>console.log('FCM Token:', token));
-  }
-});
-
-onMessage(messaging, payload=>{
-  alert(payload.notification.body);
-});
-
-// --- ฟังก์ชันหลัก ---
-function renderMedications(){
-  medListDiv.innerHTML='';
-  medications.forEach((med, idx)=>{
-    const div=document.createElement('div');
-    div.className='med';
-    div.innerHTML=`
-      <input id="medName_${idx}" value="${med.name}">
-      <input type="time" id="medTime_${idx}" value="${med.time}" step="60">
-      <button onclick="saveMedication(${idx})" class="save">บันทึก</button>
-      <button onclick="deleteMedication(${idx})" class="delete">ลบ</button>
-      <button onclick="markTaken('${med.name}', true)" class="taken">✅ กินยาแล้ว</button>
-      <button onclick="markTaken('${med.name}', false)" class="not-taken">❌ ไม่ได้กินยา</button>
-    `;
-    medListDiv.appendChild(div);
-  });
-  scheduleAllNotifications();
-}
-
-async function addMedication(){
-  const name=document.getElementById('newMed').value.trim();
-  const time=document.getElementById('newMedTime').value;
-  if(!name || !time){ alert("กรอกชื่อยาและเวลาให้ครบ"); return; }
-
-  medications.push({name,time});
-  document.getElementById('newMed').value='';
-  document.getElementById('newMedTime').value='19:00';
-  renderMedications();
-  await saveMedicationsToFirebase();
-}
-
-async function saveMedication(idx){
-  const name=document.getElementById(`medName_${idx}`).value.trim();
-  const time=document.getElementById(`medTime_${idx}`).value;
-  if(!name || !time){ alert("กรอกชื่อยาและเวลาให้ครบ"); return; }
-
-  medications[idx]={name,time};
-  renderMedications();
-  await saveMedicationsToFirebase();
-}
-
-async function deleteMedication(idx){
-  medications.splice(idx,1);
-  renderMedications();
-  await saveMedicationsToFirebase();
-}
-
-async function markTaken(medName, taken){
-  const today=new Date().toLocaleDateString('th-TH');
-  const status = taken ? "✅ กินยาแล้ว" : "❌ ไม่ได้กินยา";
-
-  await setDoc(doc(db,'medication_history',today), {
-    [medName]: status,
-    timestamp: new Date()
-  }, {merge:true});
-
-  alert(`บันทึก ${medName} ${status} แล้ว`);
-  loadHistory(true, medName);
-}
-
-async function loadHistory(flash=false, highlightMed=null){
-  historyTbody.innerHTML='';
-  const snapshot = await getDocs(collection(db,'medication_history'));
-  // เรียง document ตามวันที่
-  const sortedDocs = snapshot.docs.sort((a,b)=> new Date(a.id.split('/').join('-')) - new Date(b.id.split('/').join('-')));
-  sortedDocs.forEach(docSnap=>{
-    const date=docSnap.id;
-    const data=docSnap.data();
-    for(const med in data){
-      if(med!=='timestamp'){
-        const tr=document.createElement('tr');
-        const statusClass = data[med].includes('✅') ? 'status-taken' : 'status-not-taken';
-        tr.innerHTML=`<td>${date}</td><td>${med}</td><td class="${statusClass}">${data[med]}</td>`;
-        historyTbody.appendChild(tr);
-
-        if(flash && med===highlightMed){
-          const tdStatus = tr.querySelector('td.status-taken, td.status-not-taken');
-          tdStatus.classList.add('flash');
-          setTimeout(()=> tdStatus.classList.remove('flash'),800);
-        }
-      }
-    }
-  });
-}
-
-async function saveMedicationsToFirebase(){
-  await setDoc(doc(db,'medications','list'), {medications});
-}
-
-async function loadMedicationsFromFirebase(){
-  const docSnap = await getDoc(doc(db,'medications','list'));
-  if(docSnap.exists()){
-    medications=docSnap.data().medications||[];
-    renderMedications();
-  }
-}
-
-// --- แจ้งเตือนเวลา 24 ชม ---
-function scheduleAllNotifications(){
-  if(Notification.permission!=='granted'){ return; }
-  medications.forEach(med=>{
-    const [hour,minute]=med.time.split(':').map(Number);
-    const now=new Date();
-    const utcNow=now.getTime() + (now.getTimezoneOffset()*60000);
-    const thailandNow = new Date(utcNow + 7*3600000);
-
-    let notifTime = new Date(thailandNow);
-    notifTime.setHours(hour,minute,0,0);
-    if(notifTime<thailandNow) notifTime.setDate(notifTime.getDate()+1);
-
-    const timeout = notifTime.getTime()-thailandNow.getTime();
-    setTimeout(()=>{
-      new Notification('เวลากินยา',{body:`โปรดรับประทาน ${med.name} เวลา ${med.time}`});
-      scheduleAllNotifications(); // ตั้งซ้ำวันต่อไป
-    },timeout);
-  });
-}
-
-// --- โหลดเริ่มต้น ---
-loadMedicationsFromFirebase();
-loadHistory();
-</script>
 </body>
 </html>
