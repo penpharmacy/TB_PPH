@@ -1,29 +1,31 @@
-<!DOCTYPE html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TB Medication Reminder</title>
 <link rel="stylesheet" href="style.css">
-<script type="module" src="app.js"></script>
 </head>
 <body>
 <div class="container">
-<h1>เครื่องเตือนกินยา</h1>
+  <h1>เครื่องเตือนกินยา</h1>
 
-<h2>ใส่ชื่อยาและเวลาที่ต้องการเตือน</h2>
-<input id="newMed" placeholder="ชื่อยาใหม่">
-<input type="time" id="newMedTime" value="19:00" step="60">
-<button onclick="addMedication()" class="save">เพิ่มยา</button>
-<div id="medList"></div>
+  <h2>ใส่ชื่อยาและเวลาที่ต้องการเตือน</h2>
+  <input id="newMed" placeholder="ชื่อยาใหม่">
+  <input type="time" id="newMedTime" value="19:00" step="60">
+  <button id="addMedBtn" class="save">เพิ่มยา</button>
+  <div id="medList"></div>
 
-<h2>ประวัติการกินยา</h2>
-<table id="historyTable">
-<thead>
-<tr><th>วัน</th><th>ชื่อยา</th><th>สถานะ</th></tr>
-</thead>
-<tbody></tbody>
-</table>
+  <h2>ประวัติการกินยา</h2>
+  <table id="historyTable">
+    <thead>
+      <tr><th>วัน</th><th>ชื่อยา</th><th>สถานะ</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 </div>
+
+<!-- Firebase SDK -->
+<script type="module" src="app.js"></script>
 </body>
 </html>
