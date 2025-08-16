@@ -17,20 +17,39 @@ const VAPID_KEY = "BEW_OlIcEMACqhY8gvQJnED9MHFIT5e0Iyp6cOmVdu8LGQn6XwSplZJ-a2FsH
 const app = initializeApp(firebaseConfig);
 const messaging = getMessaging(app);
 
+// ขออนุญาตแจ้งเตือน
 Notification.requestPermission().then((permission)=>{
   if(permission==="granted"){
-    getToken(messaging,{vapIDKey:VAPID_KEY}).then(token=>console.log("FCM Token:",token));
+    getToken(messaging,{vapidKey: VAPID_KEY}).then(token=>{
+      if(token) console.log("FCM Token:", token);
+    }).catch(console.error);
   }
 });
 
-// Medications local
+// ─── จดจำชื่อผู้ใช้ ───
+const usernameInput = document.getElementById('username');
+
+// โหลดชื่อผู้ใช้จาก localStorage ตอนโหลดหน้า
+window.addEventListener('DOMContentLoaded', () => {
+  const savedName = localStorage.getItem('username');
+  if(savedName) usernameInput.value = savedName;
+});
+
+// บันทึกชื่อผู้ใช้ลง localStorage เมื่อเปลี่ยนค่า
+usernameInput.addEventListener('change', (e)=>{
+  const name = e.target.value.trim();
+  if(name) localStorage.setItem('username', name);
+});
+
+// ─── ระบบยา ───
 let medications=[];
 
 window.addMedication=function(){
-  const username=document.getElementById("username").value.trim();
+  const username=usernameInput.value.trim();
   const medName=document.getElementById("medName").value.trim();
   const medTime=document.getElementById("medTime").value;
-  if(!username||!medName||!medTime){alert("กรุณากรอกข้อมูลให้ครบ");return;}
+  if(!username || !medName || !medTime){ alert("กรุณากรอกข้อมูลให้ครบ"); return; }
+
   medications.push({username,medName,medTime,taken:false,createdAt:new Date().toISOString()});
   renderList();
   document.getElementById("medName").value='';
@@ -60,9 +79,10 @@ function markAsTaken(index){
   renderList();
 }
 
-// แจ้งเตือนทุก 2 นาที หากยังไม่กิน
+// ─── แจ้งเตือนทุก 2 นาที หากยังไม่กิน ───
 let pendingLocal={};
-function formatHHMM(d){return String(d.getHours()).padStart(2,'0')+":"+String(d.getMinutes()).padStart(2,'0');}
+function formatHHMM(d){ return String(d.getHours()).padStart(2,'0') + ":" + String(d.getMinutes()).padStart(2,'0'); }
+
 setInterval(()=>{
   const now=new Date();
   const hhmm=formatHHMM(now);
@@ -72,16 +92,20 @@ setInterval(()=>{
       const last=pendingLocal[key]||0;
       if(Date.now()-last>2*60*1000){
         pendingLocal[key]=Date.now();
-        if(Notification.permission==='granted'){try{new Notification('ถึงเวลาแล้ว: '+med.medName,{body:`${med.username} - กรุณากินยา`,icon:'icon-192.png'});}catch(e){console.warn(e);}}
-        try{document.getElementById('alarmSound').play();}catch(e){console.warn(e);}
+        if(Notification.permission==='granted'){
+          try{ new Notification('ถึงเวลาแล้ว: '+med.medName, {body:`${med.username} - กรุณากินยา`, icon:'icon-192.png'}); }catch(e){console.warn(e);}
+        }
+        try{ document.getElementById('alarmSound').play(); }catch(e){console.warn(e);}
       }
     }
   });
 },15000);
 
-// Handle messages when tab open
+// ─── รับ FCM messages ขณะเปิดแท็บ ───
 onMessage(messaging,(payload)=>{
   const title=payload.notification?.title||'แจ้งเตือน';
   const body=payload.notification?.body||'';
-  if(Notification.permission==='granted'){try{new Notification(title,{body,icon:payload.notification?.icon});}catch(e){console.warn(e);}}
+  if(Notification.permission==='granted'){
+    try{ new Notification(title,{body,icon:payload.notification?.icon}); }catch(e){console.warn(e);}
+  }
 });
